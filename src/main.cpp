@@ -2,26 +2,81 @@
 
 #include "NeuralNetwork.hpp"
 
+typedef struct InputData {
+    Matrix input;
+    Matrix output;
+} InputData;
+
+InputData readCSV(const char* filepath, size_t inputSize, size_t outputSize, size_t totalEntries) {
+    InputData data = {Matrix(inputSize, totalEntries), Matrix(outputSize, totalEntries).zero()};
+
+    FILE* fp = fopen(filepath, "r");
+
+    if (fp == NULL) {
+        fprintf(stderr, "ERROR: Could not open file: %s\n", filepath);
+        exit(1);
+    }
+
+    printf("Reading %s ... ", filepath);
+
+    // Skip first line
+    while (fgetc(fp) != '\n')
+        ;
+    
+    // Read col lines (one entry per line, one entry per column)
+    for (size_t col = 0; col < totalEntries; col++) {
+        int64_t value;
+
+        // First column is "label"
+        int read = fscanf(fp, "%ld,", &value);
+
+        // EOF
+        if (read == 0)
+            break;
+
+        // Label as the index of output vector
+        data.output[value][col] = 1.0;
+
+        for (size_t row = 0; row < inputSize; row++) {
+            // Remaining n values are input data
+            fscanf(fp, "%ld,", &value);
+
+            data.input[row][col] = (double) value / 255.0; // Normalize with maximum value from input
+        }
+    }
+
+    printf("Done!\n");
+
+    fclose(fp);
+
+    return data;
+}
+
 int main(void) {
     NeuralNetwork nn;
 
     nn.addInputLayer(784);
 
-    // nn.addHiddenLayer(28);
-    // nn.addHiddenLayer(14);
-    nn.addHiddenLayer(10);
+    nn.addHiddenLayer(56);
+    nn.addHiddenLayer(28);
+    // nn.addHiddenLayer(10);
 
     nn.addOutputLayer(10);
 
-    Matrix input = Matrix(784, 4).rand(0.0, 255.0);
-    Matrix output = Matrix(10, 4).zero();
+    InputData train = readCSV("../data/train.csv", 784, 10, 31000); // 31000 total entries
+    InputData test = readCSV("../data/test.csv", 784, 10, 11000);   // 11000 total entries
 
-    output[3][0] = 1.0;
-    output[5][1] = 1.0;
-    output[2][2] = 1.0;
-    output[9][3] = 1.0;
+    // Train
+    nn.gradientDescent(train.input, train.output, 600, 1e-1);
 
-    nn.gradientDescent(input, output, 500, 1e-2);
+    // Test NN accuracy on test data
+    ForwardData result = nn.forwardPropagation(test.input);
+
+    double acc = nn.calculateAccuracy(result.output, test.output);
+
+    printf("Accuracy on test data: %.2lf%%\n", 100.0 * acc);
+
+    nn.saveParameters("nn-parameters-784-56-28-10.bin");
 
     return 0;
 }

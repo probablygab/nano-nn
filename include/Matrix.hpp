@@ -31,9 +31,9 @@ class Matrix {
 
         Matrix& operator=(const Matrix& rhs);
         
-        double sum();
-        double min();
-        double max();
+        double sum() const;
+        double min() const;
+        double max() const;
         Matrix transpose() const;
         Matrix& transposeInPlace();
 
@@ -52,12 +52,12 @@ class Matrix {
         Matrix& zero();
         Matrix& rand(double min = -0.5, double max = 0.5);
         
-        void printShape();
-        void print();
+        void printShape() const;
+        void print() const;
 
-        const size_t getRows() const;
-        const size_t getCols() const;
-        const size_t getSize() const;
+        size_t getRows() const;
+        size_t getCols() const;
+        size_t getSize() const;
 };
 
 #endif

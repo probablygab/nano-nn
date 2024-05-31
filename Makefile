@@ -25,7 +25,7 @@ MULTI_INCDIR = $(wildcard $(MAIN_INCDIR)/*/)
 ALL_INCDIR = -I $(MAIN_INCDIR) $(addprefix -I , $(MULTI_INCDIR))
 
 # Flags
-CFLAGS = $(ALL_INCDIR) -Wall -Wextra -pedantic -std=c++17 -fopenmp -O2
+CFLAGS = $(ALL_INCDIR) -Wall -Wextra -pedantic -std=c++17 -fopenmp -O3 -march=native -mavx2 -mfma
 DBGFLAGS = -g -fno-inline
 LFLAGS = -L $(LIBDIR) -fopenmp #-lraylib
 

@@ -4,78 +4,6 @@ NeuralNetwork::NeuralNetwork() {}
 
 NeuralNetwork::~NeuralNetwork() {}
 
-Matrix NeuralNetwork::expandBias(Matrix &bias, size_t cols) {
-    Matrix res = Matrix(bias.getRows(), cols);
-
-    for (size_t row = 0; row < bias.getRows(); row++)
-        for (size_t col = 0; col < cols; col++)
-            res[row][col] = bias[row][0];
-
-    return res;
-}
-
-Matrix& NeuralNetwork::ReLU(Matrix &mat) {
-    for (size_t row = 0; row < mat.getRows(); row++)
-        for (size_t col = 0; col < mat.getCols(); col++)
-            mat[row][col] = std::max(mat[row][col], 0.0);
-
-    return mat;
-}
-
-Matrix& NeuralNetwork::derivativeReLU(Matrix &mat) {
-    for (size_t row = 0; row < mat.getRows(); row++)
-        for (size_t col = 0; col < mat.getCols(); col++) {
-            if (mat[row][col] > 0)
-                mat[row][col] = 1.0;
-            else
-                mat[row][col] = 0.0;
-        }
-
-    return mat;
-}
-
-Matrix& NeuralNetwork::softmax(Matrix &mat) {
-    // Apply softmax column by column
-    for (size_t col = 0; col < mat.getCols(); col++) {
-        // Offset by max to avoid inf and garbage results
-        double max = mat[0][col];
-
-        for (size_t row = 1; row < mat.getRows(); row++)
-            if (mat[row][col] > max)
-                max = mat[row][col];
-
-        // Exp
-        for (size_t row = 0; row < mat.getRows(); row++)
-            mat[row][col] = std::exp(mat[row][col] - max);
-
-        // Get sum and normalize
-        double sum = 0.0;
-
-        for (size_t row = 0; row < mat.getRows(); row++)
-            sum += mat[row][col];
-
-        for (size_t row = 0; row < mat.getRows(); row++)
-            mat[row][col] /= sum;
-    }
-
-
-    // // Offset by max to avoid inf and garbage results
-    // double max = mat.max();
-
-    // for (size_t row = 0; row < mat.getRows(); row++)
-    //     for (size_t col = 0; col < mat.getCols(); col++)
-    //         mat[row][col] = std::exp(mat[row][col] - max);
-
-    // // Get sum and normalize
-    // double sum = mat.sum();
-
-    // for (size_t row = 0; row < mat.getRows(); row++)
-    //     for (size_t col = 0; col < mat.getCols(); col++)
-    //         mat[row][col] /= sum;
-
-    return mat;
-}
-
 void NeuralNetwork::addInputLayer(size_t size) {
     if (SAFETY_CHECKS) {
         if (inputLayerSize > 0) {
@@ -151,6 +79,70 @@ void NeuralNetwork::addOutputLayer(size_t size) {
     numLayers++;
 }
 
+Matrix NeuralNetwork::expandBias(Matrix &bias, size_t cols) {
+    Matrix res = Matrix(bias.getRows(), cols);
+
+    for (size_t row = 0; row < bias.getRows(); row++)
+        for (size_t col = 0; col < cols; col++)
+            res[row][col] = bias[row][0];
+
+    return res;
+}
+
+Matrix& NeuralNetwork::ReLU(Matrix &mat) {
+    #pragma omp parallel for
+    for (size_t row = 0; row < mat.getRows(); row++)
+        for (size_t col = 0; col < mat.getCols(); col++)
+            mat[row][col] = std::max(mat[row][col], 0.0);
+
+    return mat;
+}
+
+Matrix& NeuralNetwork::derivativeReLU(Matrix &mat) {
+    #pragma omp parallel for
+    for (size_t row = 0; row < mat.getRows(); row++) {
+        for (size_t col = 0; col < mat.getCols(); col++) {
+            if (mat[row][col] > 0)
+                mat[row][col] = 1.0;
+            else
+                mat[row][col] = 0.0;
+        }
+    }
+
+    return mat;
+}
+
+Matrix& NeuralNetwork::softmax(Matrix &mat) {
+    // Apply softmax column by column
+    #pragma omp parallel for
+    for (size_t col = 0; col < mat.getCols(); col++) {
+        // Offset by max to avoid inf and garbage results
+        double max = mat[0][col];
+
+        #pragma omp simd reduction(max:max)
+        for (size_t row = 1; row < mat.getRows(); row++)
+            max = std::max(mat[row][col], max);
+
+        // Exp
+        #pragma omp simd
+        for (size_t row = 0; row < mat.getRows(); row++)
+            mat[row][col] = std::exp(mat[row][col] - max);
+
+        // Get sum and normalize
+        double sum = 0.0;
+
+        #pragma omp simd reduction(+:sum)
+        for (size_t row = 0; row < mat.getRows(); row++)
+            sum += mat[row][col];
+
+        #pragma omp simd
+        for (size_t row = 0; row < mat.getRows(); row++)
+            mat[row][col] /= sum;
+    }
+
+    return mat;
+}
+
 ForwardData NeuralNetwork::forwardPropagation(const Matrix &input) {
     if (SAFETY_CHECKS) {
         if (numLayers < 3) {
@@ -159,7 +151,7 @@ ForwardData NeuralNetwork::forwardPropagation(const Matrix &input) {
         }
 
         if (input.getRows() != inputLayerSize) {
-            fprintf(stderr, "ERROR: Input data has incorrect dimensions. Expected: (%lld, Any) | Got: (%lld, %lld)\n",
+            fprintf(stderr, "ERROR: Input data has incorrect dimensions. Expected: (%zu, Any) | Got: (%zu, %zu)\n",
             inputLayerSize,
             input.getRows(),
             input.getCols());
@@ -204,7 +196,7 @@ BackData NeuralNetwork::backPropagation(const Matrix &input, const Matrix& targe
         }
 
         if (input.getRows() != inputLayerSize) {
-            fprintf(stderr, "ERROR: Input data has incorrect dimensions. Expected: (%lld, Any) | Got: (%lld, %lld)\n",
+            fprintf(stderr, "ERROR: Input data has incorrect dimensions. Expected: (%zu, Any) | Got: (%zu, %zu)\n",
             inputLayerSize,
             input.getRows(),
             input.getCols());
@@ -212,7 +204,7 @@ BackData NeuralNetwork::backPropagation(const Matrix &input, const Matrix& targe
         }
 
         if (targetOutput.getRows() != outputLayerSize) {
-            fprintf(stderr, "ERROR: output data has incorrect dimensions. Expected: (%lld, Any) | Got: (%lld, %lld)\n",
+            fprintf(stderr, "ERROR: output data has incorrect dimensions. Expected: (%zu, Any) | Got: (%zu, %zu)\n",
             outputLayerSize,
             targetOutput.getRows(),
             targetOutput.getCols());
@@ -220,7 +212,7 @@ BackData NeuralNetwork::backPropagation(const Matrix &input, const Matrix& targe
         }
 
         if (input.getCols() != targetOutput.getCols()) {
-            fprintf(stderr, "ERROR: input and output data must have the same amount of columns. Current: (%lld, %lld *) vs. (%lld, %lld *)\n",
+            fprintf(stderr, "ERROR: input and output data must have the same amount of columns. Current: (%zu, %zu *) vs. (%zu, %zu *)\n",
             input.getRows(),
             input.getCols(),
             targetOutput.getRows(),
@@ -237,8 +229,8 @@ BackData NeuralNetwork::backPropagation(const Matrix &input, const Matrix& targe
     // Amount of entries being processed at once
     double m = input.getCols();
 
-    // Output layer
-    Matrix dZ = forwardData.output.sub(targetOutput); 
+    // Output layer (we copy the output matrix since sub modifies it)
+    Matrix dZ = Matrix(forwardData.output).sub(targetOutput); 
 
     // Hidden layers
     for (size_t layer = numLayers - 2; layer > 0; layer--) {
@@ -257,6 +249,38 @@ BackData NeuralNetwork::backPropagation(const Matrix &input, const Matrix& targe
     return result;
 }
 
+double NeuralNetwork::calculateAccuracy(const Matrix& output, const Matrix& targetOutput) {
+    if (SAFETY_CHECKS)
+        if (output.getRows() != targetOutput.getRows() || output.getCols() != targetOutput.getCols()) {
+            fprintf(stderr, "ERROR: Cannot calculate accuracy for output matrices of different dimensions: (%zu, %zu) vs. (%zu, %zu)\n",
+            output.getRows(), output.getCols(), targetOutput.getRows(), targetOutput.getCols());
+            exit(1);
+        }
+
+    // Amount of correct output values
+    double targetCorrect = targetOutput.sum();
+
+    // Amount of wrong output values 
+    double targetWrong = targetCorrect;
+
+    // Column by column, find max element from output
+    for (size_t col = 0; col < output.getCols(); col++) {
+        size_t maxIdx = 0;
+
+        for (size_t row = 1; row < output.getRows(); row++)
+            if (output[row][col] > output[maxIdx][col])
+                maxIdx = row;
+
+        // If on this location, targetOutput is 1.0, then output is correct
+        if (targetOutput[maxIdx][col] > 0.9)
+            targetWrong -= 1.0;
+    }
+
+    // Calculate accuracy 
+    // acc = (C - W) / C
+    return (targetCorrect - targetWrong) / targetCorrect;
+}
+
 void NeuralNetwork::updateParameters(BackData &backData, double learningRate) {
     for (size_t layer = 0; layer < numLayers - 1; layer++) {
         weights[layer].sub(backData.deltaWeights[layer].mult(learningRate));
@@ -272,13 +296,63 @@ void NeuralNetwork::gradientDescent(const Matrix &input, const Matrix& targetOut
         // Update gradually
         updateParameters(backData, learningRate);
 
-        if (iter % ITER_FEEDBACK == 0) {
-            // Mean Squared Error
-            fwdData.output.sub(targetOutput);
+        if (iter % ITER_FEEDBACK == 0 || iter == iterations - 1) {
+            // Accuracy
+            double accuracy = calculateAccuracy(fwdData.output, targetOutput);
 
+            // Mean Squared Error (this will change output in place)
+            fwdData.output.sub(targetOutput);
             double loss = fwdData.output.mult(fwdData.output).sum() / fwdData.output.getSize();
 
-            printf("Iteration: %lld  Loss (MSE): %.2lf\n", iter, loss);
+            printf("Iteration: %zu  Loss (MSE): %lf  Accuracy: %.2lf%%\n", iter, loss, 100.0 * accuracy);
         }
     }
+}
+
+void NeuralNetwork::saveParameters(const char* filepath) {
+    FILE* fp = fopen(filepath, "wb");
+
+    if (fp == NULL) {
+        fprintf(stderr, "WARNING: Could not create parameters file: %s\n", filepath);
+        return;
+    }
+
+    // Dump arrays in pure binary fashion
+    for (const Matrix &wei : weights) {
+        const void* data = &wei[0][0];
+
+        fwrite(data, wei.getSize() * sizeof(double), 1, fp);
+    }
+
+    for (const Matrix &bias : biases) {
+        const void* data = &bias[0][0];
+
+        fwrite(data, bias.getSize() * sizeof(double), 1, fp);
+    }
+
+    fclose(fp);    
+}
+
+void NeuralNetwork::loadParameters(const char* filepath) {
+    FILE* fp = fopen(filepath, "rb");
+
+    if (fp == NULL) {
+        fprintf(stderr, "WARNING: Could not open parameters file: %s\n", filepath);
+        return;
+    }
+
+    // Load arrays in pure binary fashion
+    for (Matrix &wei : weights) {
+        void* data = &wei[0][0];
+
+        fread(data, wei.getSize() * sizeof(double), 1, fp);
+    }
+
+    for (Matrix &bias : biases) {
+        void* data = &bias[0][0];
+
+        fread(data, bias.getSize() * sizeof(double), 1, fp);
+    }
+
+    fclose(fp);    
 }

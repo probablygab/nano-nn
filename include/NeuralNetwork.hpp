@@ -47,8 +47,12 @@ class NeuralNetwork {
         ForwardData forwardPropagation(const Matrix &input);
         BackData backPropagation(const Matrix &input, const Matrix& targetOutput, ForwardData &forwardData);
 
+        double calculateAccuracy(const Matrix& output, const Matrix& targetOutput);
         void updateParameters(BackData &backData, double learningRate);
         void gradientDescent(const Matrix &input, const Matrix& targetOutput, size_t iterations, double learningRate);
+
+        void saveParameters(const char* filepath);
+        void loadParameters(const char* filepath);
 };
 
 #endif

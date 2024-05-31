@@ -7,7 +7,7 @@ Matrix::Matrix() {
 Matrix::Matrix(size_t _rows, size_t _cols) {
     if (SAFETY_CHECKS)
         if (_rows == 0 || _cols == 0) {
-            fprintf(stderr, "ERROR: Matrix size cannot be zero (%lld, %lld)\n", _rows, _cols);
+            fprintf(stderr, "ERROR: Matrix size cannot be zero (%zu, %zu)\n", _rows, _cols);
             exit(1);
         }
 
@@ -61,36 +61,38 @@ Matrix& Matrix::operator=(const Matrix& rhs) {
     return *this;
 }
 
-double Matrix::sum() {
+double Matrix::sum() const {
     double acc = 0.0;
-
+    
+    #pragma omp simd reduction(+:acc)
     for (size_t i = 0; i < size; i++)
         acc += data[i];
 
     return acc;
 }
 
-double Matrix::min() {
+double Matrix::min() const {
     double min = data[0];
 
+    #pragma omp simd reduction(min:min)
     for (size_t i = 1; i < size; i++)
-        if (data[i] < min)
-            min = data[i];
+        min = std::min(data[i], min);
 
     return min;
 }
 
-double Matrix::max() {
+double Matrix::max() const {
     double max = data[0];
 
+    #pragma omp simd reduction(max:max)
     for (size_t i = 1; i < size; i++)
-        if (data[i] > max)
-            max = data[i];
+        max = std::max(data[i], max);
 
     return max;
 }
 
 Matrix& Matrix::add(const double scalar) {
+    #pragma omp parallel for simd
     for (size_t i = 0; i < size; i++)
         data[i] += scalar;
 
@@ -98,6 +100,7 @@ Matrix& Matrix::add(const double scalar) {
 }
 
 Matrix& Matrix::sub(const double scalar) {
+    #pragma omp parallel for simd
     for (size_t i = 0; i < size; i++)
         data[i] -= scalar;
 
@@ -107,11 +110,12 @@ Matrix& Matrix::sub(const double scalar) {
 Matrix& Matrix::add(const Matrix& rhs) {
     if (SAFETY_CHECKS)
         if (rows != rhs.rows || cols != rhs.cols) {
-            fprintf(stderr, "ERROR: Cannot add matrices of different dimensions: (%lld, %lld) vs. (%lld, %lld)\n",
+            fprintf(stderr, "ERROR: Cannot add matrices of different dimensions: (%zu, %zu) vs. (%zu, %zu)\n",
             rows, cols, rhs.rows, rhs.cols);
             exit(1);
         }
 
+    #pragma omp parallel for simd
     for (size_t i = 0; i < size; i++)
         data[i] += rhs.data[i];
 
@@ -121,11 +125,12 @@ Matrix& Matrix::add(const Matrix& rhs) {
 Matrix& Matrix::sub(const Matrix& rhs) {
     if (SAFETY_CHECKS)
         if (rows != rhs.rows || cols != rhs.cols) {
-            fprintf(stderr, "ERROR: Cannot sub matrices of different dimensions: (%lld, %lld) vs. (%lld, %lld)\n",
+            fprintf(stderr, "ERROR: Cannot sub matrices of different dimensions: (%zu, %zu) vs. (%zu, %zu)\n",
             rows, cols, rhs.rows, rhs.cols);
             exit(1);
         }
 
+    #pragma omp parallel for simd
     for (size_t i = 0; i < size; i++)
         data[i] -= rhs.data[i];
 
@@ -135,11 +140,12 @@ Matrix& Matrix::sub(const Matrix& rhs) {
 Matrix& Matrix::mult(const Matrix& rhs) {
     if (SAFETY_CHECKS)
         if (rows != rhs.rows || cols != rhs.cols) {
-            fprintf(stderr, "ERROR: Cannot multiply matrices of different dimensions: (%lld, %lld) vs. (%lld, %lld)\n",
+            fprintf(stderr, "ERROR: Cannot multiply matrices of different dimensions: (%zu, %zu) vs. (%zu, %zu)\n",
             rows, cols, rhs.rows, rhs.cols);
             exit(1);
         }
-
+    
+    #pragma omp parallel for simd
     for (size_t i = 0; i < size; i++)
         data[i] *= rhs.data[i];
 
@@ -149,11 +155,12 @@ Matrix& Matrix::mult(const Matrix& rhs) {
 Matrix& Matrix::div(const Matrix& rhs) {
     if (SAFETY_CHECKS)
         if (rows != rhs.rows || cols != rhs.cols) {
-            fprintf(stderr, "ERROR: Cannot divide matrices of different dimensions: (%lld, %lld) vs. (%lld, %lld)\n",
+            fprintf(stderr, "ERROR: Cannot divide matrices of different dimensions: (%zu, %zu) vs. (%zu, %zu)\n",
             rows, cols, rhs.rows, rhs.cols);
             exit(1);
         }
 
+    #pragma omp parallel for simd
     for (size_t i = 0; i < size; i++)
         data[i] /= rhs.data[i];
 
@@ -161,13 +168,15 @@ Matrix& Matrix::div(const Matrix& rhs) {
 }
 
 Matrix& Matrix::mult(const double scalar) {
+    #pragma omp parallel for simd
     for (size_t i = 0; i < size; i++)
         data[i] *= scalar;
 
     return *this;
 }
 
-Matrix& Matrix::div(const double scalar) {        
+Matrix& Matrix::div(const double scalar) {    
+    #pragma omp parallel for simd   
     for (size_t i = 0; i < size; i++)
         data[i] /= scalar;
 
@@ -177,14 +186,15 @@ Matrix& Matrix::div(const double scalar) {
 Matrix Matrix::dot(const Matrix& rhs) {
     if (SAFETY_CHECKS)
         if (cols != rhs.rows) {
-            fprintf(stderr, "ERROR: Cannot dot product matrices of different dimensions: (%lld, %lld *) vs. (%lld *, %lld)\n",
+            fprintf(stderr, "ERROR: Cannot dot product matrices of different dimensions: (%zu, %zu *) vs. (%zu *, %zu)\n",
             rows, cols, rhs.rows, rhs.cols);
             exit(1);
         }
 
     Matrix res = Matrix(rows, rhs.cols);
 
-    for (size_t row = 0; row < rows; row++)
+    #pragma omp parallel for
+    for (size_t row = 0; row < rows; row++) {
         for (size_t col = 0; col < rhs.cols; col++) {
             double acc = 0.0;
 
@@ -193,6 +203,7 @@ Matrix Matrix::dot(const Matrix& rhs) {
 
             res[row][col] = acc;
         }
+    }
 
     return res;
 }
@@ -201,9 +212,12 @@ Matrix Matrix::transpose() const {
     Matrix T = Matrix(cols, rows);
 
     // Copy each element to T
-    for (size_t row = 0; row < rows; row++)
-        for (size_t col = 0; col < cols; col++)
+    #pragma omp parallel for
+    for (size_t row = 0; row < rows; row++) {
+        for (size_t col = 0; col < cols; col++) {
             T.data[col * rows + row] = data[row * cols + col];  
+        }
+    }
 
     return T;
 }
@@ -259,11 +273,11 @@ Matrix& Matrix::rand(double min, double max) {
     return *this;
 }
 
-void Matrix::printShape() {
-    printf("(%lld, %lld)\n", rows, cols);
+void Matrix::printShape() const {
+    printf("(%zu, %zu)\n", rows, cols);
 }
 
-void Matrix::print() {
+void Matrix::print() const {
     printShape();
 
     for (size_t row = 0; row < rows; row++) {
@@ -276,14 +290,14 @@ void Matrix::print() {
     printf("\n");
 }
 
-const size_t Matrix::getRows() const {
+size_t Matrix::getRows() const {
     return rows;
 }
 
-const size_t Matrix::getCols() const {
+size_t Matrix::getCols() const {
     return cols;
 }
 
-const size_t Matrix::getSize() const {
+size_t Matrix::getSize() const {
     return size;
 }
