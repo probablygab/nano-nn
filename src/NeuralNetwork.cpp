@@ -14,22 +14,66 @@ Matrix NeuralNetwork::expandBias(Matrix &bias, size_t cols) {
     return res;
 }
 
-void NeuralNetwork::ReLU(Matrix &mat) {
+Matrix& NeuralNetwork::ReLU(Matrix &mat) {
     for (size_t row = 0; row < mat.getRows(); row++)
         for (size_t col = 0; col < mat.getCols(); col++)
             mat[row][col] = std::max(mat[row][col], 0.0);
+
+    return mat;
 }
 
-void NeuralNetwork::softmax(Matrix &mat) {
+Matrix& NeuralNetwork::derivativeReLU(Matrix &mat) {
     for (size_t row = 0; row < mat.getRows(); row++)
-        for (size_t col = 0; col < mat.getCols(); col++)
-            mat[row][col] = std::exp(mat[row][col]);
+        for (size_t col = 0; col < mat.getCols(); col++) {
+            if (mat[row][col] > 0)
+                mat[row][col] = 1.0;
+            else
+                mat[row][col] = 0.0;
+        }
 
-    double sum = mat.sum();
+    return mat;
+}
 
-    for (size_t row = 0; row < mat.getRows(); row++)
-        for (size_t col = 0; col < mat.getCols(); col++)
+Matrix& NeuralNetwork::softmax(Matrix &mat) {
+    // Apply softmax column by column
+    for (size_t col = 0; col < mat.getCols(); col++) {
+        // Offset by max to avoid inf and garbage results
+        double max = mat[0][col];
+
+        for (size_t row = 1; row < mat.getRows(); row++)
+            if (mat[row][col] > max)
+                max = mat[row][col];
+
+        // Exp
+        for (size_t row = 0; row < mat.getRows(); row++)
+            mat[row][col] = std::exp(mat[row][col] - max);
+
+        // Get sum and normalize
+        double sum = 0.0;
+
+        for (size_t row = 0; row < mat.getRows(); row++)
+            sum += mat[row][col];
+
+        for (size_t row = 0; row < mat.getRows(); row++)
             mat[row][col] /= sum;
+    }
+
+
+    // // Offset by max to avoid inf and garbage results
+    // double max = mat.max();
+
+    // for (size_t row = 0; row < mat.getRows(); row++)
+    //     for (size_t col = 0; col < mat.getCols(); col++)
+    //         mat[row][col] = std::exp(mat[row][col] - max);
+
+    // // Get sum and normalize
+    // double sum = mat.sum();
+
+    // for (size_t row = 0; row < mat.getRows(); row++)
+    //     for (size_t col = 0; col < mat.getCols(); col++)
+    //         mat[row][col] /= sum;
+
+    return mat;
 }
 
 void NeuralNetwork::addInputLayer(size_t size) {
@@ -107,7 +151,7 @@ void NeuralNetwork::addOutputLayer(size_t size) {
     numLayers++;
 }
 
-Matrix NeuralNetwork::forwardPropagation(Matrix &input) {
+ForwardData NeuralNetwork::forwardPropagation(const Matrix &input) {
     if (SAFETY_CHECKS) {
         if (numLayers < 3) {
             fprintf(stderr, "ERROR: Cannot propagate forward. A minimum of three layers (input, hidden+, output) is required\n");
@@ -123,6 +167,9 @@ Matrix NeuralNetwork::forwardPropagation(Matrix &input) {
         }
     }
 
+    // Result: output and intermediate layers values
+    ForwardData result;
+
     // Expand bias vector to every column
     Matrix B = expandBias(biases[0], input.getCols());
 
@@ -133,12 +180,105 @@ Matrix NeuralNetwork::forwardPropagation(Matrix &input) {
     for (size_t layer = 1; layer < numLayers - 1; layer++) {
         Matrix B = expandBias(biases[layer], Z.getCols());
 
+        // Save values for visualization and back propagation
+        result.hiddenValues.push_back(Z);
         ReLU(Z);
+        result.hiddenValuesAfterActivation.push_back(Z);
+
+        // Advance to next layer
         Z = weights[layer].dot(Z).add(B); 
     }
 
     // Output layer
     softmax(Z);
+    result.output = Z;
 
-    return Z;
+    return result;
+}
+
+BackData NeuralNetwork::backPropagation(const Matrix &input, const Matrix& targetOutput, ForwardData &forwardData) {
+    if (SAFETY_CHECKS) {
+        if (numLayers < 3) {
+            fprintf(stderr, "ERROR: Cannot propagate backwards. A minimum of three layers (input, hidden+, output) is required\n");
+            exit(1);
+        }
+
+        if (input.getRows() != inputLayerSize) {
+            fprintf(stderr, "ERROR: Input data has incorrect dimensions. Expected: (%lld, Any) | Got: (%lld, %lld)\n",
+            inputLayerSize,
+            input.getRows(),
+            input.getCols());
+            exit(1);
+        }
+
+        if (targetOutput.getRows() != outputLayerSize) {
+            fprintf(stderr, "ERROR: output data has incorrect dimensions. Expected: (%lld, Any) | Got: (%lld, %lld)\n",
+            outputLayerSize,
+            targetOutput.getRows(),
+            targetOutput.getCols());
+            exit(1);
+        }
+
+        if (input.getCols() != targetOutput.getCols()) {
+            fprintf(stderr, "ERROR: input and output data must have the same amount of columns. Current: (%lld, %lld *) vs. (%lld, %lld *)\n",
+            input.getRows(),
+            input.getCols(),
+            targetOutput.getRows(),
+            targetOutput.getCols());
+            exit(1);
+        }
+    }
+
+    // Result: delta weights and biases to update parameters
+    BackData result;
+    result.deltaWeights.resize(numLayers - 1);
+    result.deltaBiases.resize(numLayers - 1);
+    
+    // Amount of entries being processed at once
+    double m = input.getCols();
+
+    // Output layer
+    Matrix dZ = forwardData.output.sub(targetOutput); 
+
+    // Hidden layers
+    for (size_t layer = numLayers - 2; layer > 0; layer--) {
+        // Calculate deltas
+        result.deltaWeights[layer] = dZ.dot(forwardData.hiddenValuesAfterActivation[layer - 1].transpose()).div(m);
+        result.deltaBiases[layer] = dZ.sum() / m;
+
+        // Advance to previous layer
+        dZ = weights[layer].transpose().dot(dZ).mult(derivativeReLU(forwardData.hiddenValues[layer - 1]));
+    }
+
+    // Input layer
+    result.deltaWeights[0] = dZ.dot(input.transpose()).div(m);
+    result.deltaBiases[0] = dZ.sum() / m;
+
+    return result;
+}
+
+void NeuralNetwork::updateParameters(BackData &backData, double learningRate) {
+    for (size_t layer = 0; layer < numLayers - 1; layer++) {
+        weights[layer].sub(backData.deltaWeights[layer].mult(learningRate));
+        biases[layer].sub(backData.deltaBiases[layer] * learningRate);
+    }
+}
+
+void NeuralNetwork::gradientDescent(const Matrix &input, const Matrix& targetOutput, size_t iterations, double learningRate) {
+    for (size_t iter = 0; iter < iterations; iter++) {
+        ForwardData fwdData = forwardPropagation(input);
+        BackData backData = backPropagation(input, targetOutput, fwdData);
+
+        // Update gradually
+        updateParameters(backData, learningRate);
+
+        if (iter % ITER_FEEDBACK == 0) {
+            // Mean Squared Error
+            fwdData.output.sub(targetOutput);
+
+            double loss = fwdData.output.mult(fwdData.output).sum() / fwdData.output.getSize();
+
+            printf("Iteration: %lld  Loss (MSE): %.2lf\n", iter, loss);
+        }
+    }
 }

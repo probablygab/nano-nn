@@ -6,6 +6,19 @@
 #include <vector>
 #include <math.h>
 
+#define ITER_FEEDBACK 50
+
+typedef struct ForwardData {
+    Matrix output;
+    std::vector<Matrix> hiddenValues;
+    std::vector<Matrix> hiddenValuesAfterActivation;
+} ForwardData;
+
+typedef struct BackData {
+    std::vector<Matrix> deltaWeights;
+    std::vector<double> deltaBiases;
+} BackData;
+
 class NeuralNetwork {
     private:
         size_t numLayers = 0;
@@ -18,10 +31,10 @@ class NeuralNetwork {
     private:
         Matrix expandBias(Matrix &bias, size_t cols);
 
-        void ReLU(Matrix &mat);
-        //void derivativeReLU(Matrix &mat)
+        Matrix& ReLU(Matrix &mat);
+        Matrix& derivativeReLU(Matrix &mat);
 
-        void softmax(Matrix &mat);     
+        Matrix& softmax(Matrix &mat);     
 
     public:
         NeuralNetwork();
@@ -31,7 +44,11 @@ class NeuralNetwork {
         void addHiddenLayer(size_t size);
         void addOutputLayer(size_t size);
 
-        Matrix forwardPropagation(Matrix &input);
+        ForwardData forwardPropagation(const Matrix &input);
+        BackData backPropagation(const Matrix &input, const Matrix& targetOutput, ForwardData &forwardData);
+
+        void updateParameters(BackData &backData, double learningRate);
+        void gradientDescent(const Matrix &input, const Matrix& targetOutput, size_t iterations, double learningRate);
 };
 
 #endif

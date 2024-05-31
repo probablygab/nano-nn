@@ -32,23 +32,32 @@ class Matrix {
         Matrix& operator=(const Matrix& rhs);
         
         double sum();
-        Matrix& transpose();
+        double min();
+        double max();
+        Matrix transpose() const;
+        Matrix& transposeInPlace();
 
         Matrix& add(const double scalar);
+        Matrix& sub(const double scalar);
         Matrix& add(const Matrix& rhs);
         Matrix& sub(const Matrix& rhs);
 
         Matrix& mult(const double scalar);
+        Matrix& div(const double scalar);
+        Matrix& mult(const Matrix& rhs);
+        Matrix& div(const Matrix& rhs);
+
         Matrix dot(const Matrix& rhs);
 
         Matrix& zero();
-        Matrix& rand();
+        Matrix& rand(double min = -0.5, double max = 0.5);
         
+        void printShape();
         void print();
 
-        size_t getRows();
-        size_t getCols();
-        size_t getSize();
+        const size_t getRows() const;
+        const size_t getCols() const;
+        const size_t getSize() const;
 };
 
 #endif

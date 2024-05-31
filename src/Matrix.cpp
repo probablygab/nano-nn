@@ -70,9 +70,36 @@ double Matrix::sum() {
     return acc;
 }
 
+double Matrix::min() {
+    double min = data[0];
+
+    for (size_t i = 1; i < size; i++)
+        if (data[i] < min)
+            min = data[i];
+
+    return min;
+}
+
+double Matrix::max() {
+    double max = data[0];
+
+    for (size_t i = 1; i < size; i++)
+        if (data[i] > max)
+            max = data[i];
+
+    return max;
+}
+
 Matrix& Matrix::add(const double scalar) {
     for (size_t i = 0; i < size; i++)
         data[i] += scalar;
+
+    return *this;
+}
+
+Matrix& Matrix::sub(const double scalar) {
+    for (size_t i = 0; i < size; i++)
+        data[i] -= scalar;
 
     return *this;
 }
@@ -105,6 +132,34 @@ Matrix& Matrix::sub(const Matrix& rhs) {
     return *this;
 }
 
+Matrix& Matrix::mult(const Matrix& rhs) {
+    if (SAFETY_CHECKS)
+        if (rows != rhs.rows || cols != rhs.cols) {
+            fprintf(stderr, "ERROR: Cannot multiply matrices of different dimensions: (%lld, %lld) vs. (%lld, %lld)\n",
+            rows, cols, rhs.rows, rhs.cols);
+            exit(1);
+        }
+
+    for (size_t i = 0; i < size; i++)
+        data[i] *= rhs.data[i];
+
+    return *this;
+}
+
+Matrix& Matrix::div(const Matrix& rhs) {
+    if (SAFETY_CHECKS)
+        if (rows != rhs.rows || cols != rhs.cols) {
+            fprintf(stderr, "ERROR: Cannot divide matrices of different dimensions: (%lld, %lld) vs. (%lld, %lld)\n",
+            rows, cols, rhs.rows, rhs.cols);
+            exit(1);
+        }
+
+    for (size_t i = 0; i < size; i++)
+        data[i] /= rhs.data[i];
+
+    return *this;
+}
+
 Matrix& Matrix::mult(const double scalar) {
     for (size_t i = 0; i < size; i++)
         data[i] *= scalar;
@@ -112,10 +167,17 @@ Matrix& Matrix::mult(const double scalar) {
     return *this;
 }
 
+Matrix& Matrix::div(const double scalar) {        
+    for (size_t i = 0; i < size; i++)
+        data[i] /= scalar;
+
+    return *this;
+}
+
 Matrix Matrix::dot(const Matrix& rhs) {
     if (SAFETY_CHECKS)
         if (cols != rhs.rows) {
-            fprintf(stderr, "ERROR: Cannot dot product matrices of different dimensions: (%lld, %lld !) vs. (%lld !, %lld)\n",
+            fprintf(stderr, "ERROR: Cannot dot product matrices of different dimensions: (%lld, %lld *) vs. (%lld *, %lld)\n",
             rows, cols, rhs.rows, rhs.cols);
             exit(1);
         }
@@ -135,7 +197,18 @@ Matrix Matrix::dot(const Matrix& rhs) {
     return res;
 }
 
-Matrix& Matrix::transpose() {
+Matrix Matrix::transpose() const {
+    Matrix T = Matrix(cols, rows);
+
+    // Copy each element to T
+    for (size_t row = 0; row < rows; row++)
+        for (size_t col = 0; col < cols; col++)
+            T.data[col * rows + row] = data[row * cols + col];  
+
+    return T;
+}
+
+Matrix& Matrix::transposeInPlace() {
     // 1D-like matrix
     if (rows == 1 || cols == 1) {
         std::swap<size_t>(rows, cols);
@@ -175,10 +248,10 @@ Matrix& Matrix::zero() {
     return *this;
 }
 
-Matrix& Matrix::rand() {
+Matrix& Matrix::rand(double min, double max) {
     std::random_device randomDevice;
     std::default_random_engine randomEngine(randomDevice());
-    std::uniform_real_distribution<double> uniformDist(-0.5, 0.5);
+    std::uniform_real_distribution<double> uniformDist(min, max);
 
     for (size_t i = 0; i < size; i++)
         data[i] = uniformDist(randomEngine);
@@ -186,12 +259,16 @@ Matrix& Matrix::rand() {
     return *this;
 }
 
-void Matrix::print() {
+void Matrix::printShape() {
     printf("(%lld, %lld)\n", rows, cols);
+}
+
+void Matrix::print() {
+    printShape();
 
     for (size_t row = 0; row < rows; row++) {
         for (size_t col = 0; col < cols; col++)
-            printf("%.2lf  ", (*this)[row][col]);
+            printf("%lf  ", (*this)[row][col]);
 
         printf("\n");
     }
@@ -199,14 +276,14 @@ void Matrix::print() {
     printf("\n");
 }
 
-size_t Matrix::getRows() {
+const size_t Matrix::getRows() const {
     return rows;
 }
 
-size_t Matrix::getCols() {
+const size_t Matrix::getCols() const {
     return cols;
 }
 
-size_t Matrix::getSize() {
+const size_t Matrix::getSize() const {
     return size;
 }
