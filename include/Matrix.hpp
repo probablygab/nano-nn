@@ -6,7 +6,7 @@
 #include <random>
 
 #ifndef SAFETY_CHECKS
-#define SAFETY_CHECKS 1
+#define SAFETY_CHECKS 0
 #endif
 
 class Matrix {

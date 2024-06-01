@@ -59,6 +59,7 @@ run:
 # Delete the program and build files
 clean:
 	rm -f $(BINDIR)/$(EXEC)
+	rm -f $(BINDIR)/$(EXEC).exe
 	rm -f $(OBJDIR)/*.o
 	
 # Run valgrind to search for memory leaks

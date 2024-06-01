@@ -54,13 +54,13 @@ Matrix& Matrix::operator=(const Matrix& rhs) {
 }
 
 double Matrix::sum() const {
-    double acc = 0.0;
+    double sum = 0.0;
     
-    #pragma omp simd reduction(+:acc)
+    #pragma omp simd reduction(+:sum)
     for (size_t i = 0; i < size; i++)
-        acc += data[i];
+        sum += data[i];
 
-    return acc;
+    return sum;
 }
 
 double Matrix::min() const {
@@ -186,17 +186,26 @@ Matrix Matrix::dot(const Matrix& rhs) {
     Matrix res = Matrix(rows, rhs.cols);
 
     #pragma omp parallel for
-    for (size_t row = 0; row < rows; row++) {
-        for (size_t col = 0; col < rhs.cols; col++) {
-            double acc = 0.0;
+    for (size_t col = 0; col < rhs.cols; col++) {
+        double* rhsCol = new double[rhs.rows];
 
-            for (size_t idx = 0; idx < cols; idx++)
-                acc += (*this)[row][idx] * rhs[idx][col]; 
+        // Copy rhs column to avoid jumps in memory (cache-friendly)
+        for (size_t k = 0; k < rhs.rows; k++)
+            rhsCol[k] = rhs[k][col];
 
-            res[row][col] = acc;
+        for (size_t row = 0; row < rows; row++) {
+            double sum = 0.0;
+
+            #pragma omp simd reduction(+:sum)
+            for (size_t k = 0; k < cols; k++)
+                sum += (*this)[row][k] * rhsCol[k];
+
+            res[row][col] = sum;
         }
-    }
 
+        delete[] rhsCol;
+    }
+  
     return res;
 }
 
@@ -210,7 +219,6 @@ Matrix& Matrix::transpose() {
 
     // Square matrix
     if (rows == cols) {
-        #pragma omp parallel for
         for (size_t row = 1; row < rows; row++) {
             for (size_t col = 0; col < row; col++)
                 std::swap<double>((*this)[row][col], (*this)[col][row]);
@@ -222,7 +230,6 @@ Matrix& Matrix::transpose() {
     // Non-square matrix
     double* dataT = new double[size];
 
-    #pragma omp parallel for
     for (size_t row = 0; row < rows; row++) {
         for (size_t col = 0; col < cols; col++)
             dataT[col * rows + row] = data[row * cols + col];
