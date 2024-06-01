@@ -1,9 +1,8 @@
 #ifndef MATRIX_H
 #define MATRIX_H
 
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
+#include <cstdio>
+#include <cstring>
 #include <random>
 
 #ifndef SAFETY_CHECKS

@@ -1,13 +1,15 @@
 #ifndef DEMO_VIEW_H
 #define DEMO_VIEW_H
 
+#include "NeuralNetwork.hpp"
+
 // Need a namespace for raylib because it also uses a struct called Matrix
 // This way we can avoid conflicts
 namespace ray {
-#include "raylib/raylib.h"
+    extern "C" {
+        #include "raylib/raylib.h"
+    }
 }
-
-#include "NeuralNetwork.hpp"
 
 void drawWeights(const NeuralNetwork &nn, int x, int y);
 

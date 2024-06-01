@@ -32,7 +32,7 @@ LFLAGS = -L $(LIBDIR) -fopenmp
 ifeq ($(OS),Windows_NT)
 LFLAGS += -l:raylib.dll
 else
-LFLAGS += -l:raylib.so.5.0.0
+LFLAGS += -l:libraylib.a -ldl
 endif
 
 ifeq ($(DEBUG),YES)
