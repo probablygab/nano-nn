@@ -1,8 +1,6 @@
 #ifndef MATRIX_H
 #define MATRIX_H
 
-#include <algorithm>
-#include <bits/c++config.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>

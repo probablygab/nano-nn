@@ -27,17 +27,23 @@ ALL_INCDIR = -I $(MAIN_INCDIR) $(addprefix -I , $(MULTI_INCDIR))
 # Flags
 CFLAGS = $(ALL_INCDIR) -Wall -Wextra -pedantic -std=c++17 -fopenmp -O3 -march=native -mavx2 -mfma
 DBGFLAGS = -g -fno-inline
-LFLAGS = -L $(LIBDIR) -fopenmp -lraylib
+LFLAGS = -L $(LIBDIR) -fopenmp
+
+ifeq ($(OS),Windows_NT)
+LFLAGS += -l:raylib.dll
+else
+LFLAGS += -l:raylib.so.5.0.0
+endif
+
+ifeq ($(DEBUG),YES)
+CFLAGS := $(CFLAGS) $(DBGFLAGS)
+endif
 
 # Ignore these files
 .PHONY : compile all run clean valgrind
 
 # Compile source to outputs .o 
 compile: $(OBJ)
-
-ifeq ($(DEBUG),YES)
-CFLAGS := $(CFLAGS) $(DBGFLAGS)
-endif
 
 $(OBJDIR)/%.o: $(MAIN_SRCDIR)/%.cpp
 	$(CC) -c $(CFLAGS) $< -o $@

@@ -6,7 +6,7 @@
 #include <vector>
 #include <math.h>
 
-#define ITER_FEEDBACK 50
+#define ITER_FEEDBACK 10
 
 typedef struct ForwardData {
     Matrix output;
