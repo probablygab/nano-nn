@@ -31,8 +31,8 @@ class Matrix {
         double sum() const;
         double min() const;
         double max() const;
-        Matrix transpose() const;
-        Matrix& transposeInPlace();
+
+        Matrix& transpose();
 
         Matrix& add(const double scalar);
         Matrix& sub(const double scalar);
@@ -56,5 +56,13 @@ class Matrix {
         size_t getCols() const;
         size_t getSize() const;
 };
+
+inline double* Matrix::operator[](size_t row) {
+    return &data[row * cols];
+}
+
+inline const double* Matrix::operator[](size_t row) const {
+    return &data[row * cols];
+}
 
 #endif

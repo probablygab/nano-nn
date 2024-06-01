@@ -33,14 +33,6 @@ Matrix::~Matrix() {
     delete[] data;
 }
 
-double* Matrix::operator[](size_t row) {
-    return &data[row * cols];
-}
-
-const double* Matrix::operator[](size_t row) const {
-    return &data[row * cols];
-}
-
 Matrix& Matrix::operator=(const Matrix& rhs) {
     if (this != &rhs) {
         // Deallocate existing matrix
@@ -208,21 +200,7 @@ Matrix Matrix::dot(const Matrix& rhs) {
     return res;
 }
 
-Matrix Matrix::transpose() const {
-    Matrix T = Matrix(cols, rows);
-
-    // Copy each element to T
-    #pragma omp parallel for
-    for (size_t row = 0; row < rows; row++) {
-        for (size_t col = 0; col < cols; col++) {
-            T.data[col * rows + row] = data[row * cols + col];  
-        }
-    }
-
-    return T;
-}
-
-Matrix& Matrix::transposeInPlace() {
+Matrix& Matrix::transpose() {
     // 1D-like matrix
     if (rows == 1 || cols == 1) {
         std::swap<size_t>(rows, cols);
@@ -232,9 +210,11 @@ Matrix& Matrix::transposeInPlace() {
 
     // Square matrix
     if (rows == cols) {
-        for (size_t row = 1; row < rows; row++)
+        #pragma omp parallel for
+        for (size_t row = 1; row < rows; row++) {
             for (size_t col = 0; col < row; col++)
                 std::swap<double>((*this)[row][col], (*this)[col][row]);
+        }
 
         return *this;
     }
@@ -242,9 +222,11 @@ Matrix& Matrix::transposeInPlace() {
     // Non-square matrix
     double* dataT = new double[size];
 
-    for (size_t row = 0; row < rows; row++)
+    #pragma omp parallel for
+    for (size_t row = 0; row < rows; row++) {
         for (size_t col = 0; col < cols; col++)
             dataT[col * rows + row] = data[row * cols + col];
+    }
 
     // Swap data and dimensions
     delete[] data;

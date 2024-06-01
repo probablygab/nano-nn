@@ -239,11 +239,11 @@ BackData NeuralNetwork::backPropagation(const Matrix &input, const Matrix& targe
         result.deltaBiases[layer] = dZ.sum() / m;
 
         // Advance to previous layer
-        dZ = weights[layer].transpose().dot(dZ).mult(derivativeReLU(forwardData.hiddenValues[layer - 1]));
+        dZ = Matrix(weights[layer]).transpose().dot(dZ).mult(derivativeReLU(forwardData.hiddenValues[layer - 1]));
     }
 
     // Input layer
-    result.deltaWeights[0] = dZ.dot(input.transpose()).div(m);
+    result.deltaWeights[0] = dZ.dot(Matrix(input).transpose()).div(m);
     result.deltaBiases[0] = dZ.sum() / m;
 
     return result;

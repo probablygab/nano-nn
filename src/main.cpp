@@ -1,7 +1,6 @@
-#include <stdio.h>
-
+// Nano Multi-Layer Perceptron Neural Network by Gab - June 2024 (absolutely not optimized)
 #include "NeuralNetwork.hpp"
-//#include "demoView.hpp"
+#include "demoView.hpp"
 
 typedef struct InputData {
     Matrix input;
@@ -66,8 +65,8 @@ int main(void) {
 
     // runDemo(nn);
 
-    InputData train = readCSV("../data/train.csv", 784, 10, 31); // 31000 total entries
-    InputData test = readCSV("../data/test.csv", 784, 10, 11);   // 11000 total entries
+    InputData train = readCSV("../data/train.csv", 784, 10, 3100); // 31000 total entries
+    InputData test = readCSV("../data/test.csv", 784, 10, 1100);   // 11000 total entries
 
     // Train
     nn.gradientDescent(train.input, train.output, 600, 1e-1);
