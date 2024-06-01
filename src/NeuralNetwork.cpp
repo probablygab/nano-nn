@@ -1,9 +1,20 @@
 #include "NeuralNetwork.hpp"
 
+/**
+ * @brief Construct an empty Neural Network. 
+ * Use addInputLayer, addHiddenLayer and addOutputLayer to build it.
+ * 
+ */
 NeuralNetwork::NeuralNetwork() {}
 
 NeuralNetwork::~NeuralNetwork() {}
 
+
+/**
+ * @brief Add an input layer to the Neural Network.
+ * 
+ * @param size Size of the input layer. Should match the amount of features in the input data.
+ */
 void NeuralNetwork::addInputLayer(size_t size) {
     if (SAFETY_CHECKS) {
         if (inputLayerSize > 0) {
@@ -21,10 +32,21 @@ void NeuralNetwork::addInputLayer(size_t size) {
     numLayers++;
 }
 
+
+/**
+ * @brief Add a hidden layer to the Neural Network. Will connect to the previous hidden layer or input layer.
+ * 
+ * @param size Size of the hidden layer, can be any positive integer, usually between the input and output size.
+ */
 void NeuralNetwork::addHiddenLayer(size_t size) {
     if (SAFETY_CHECKS) {
         if (numLayers < 1) {
             fprintf(stderr, "ERROR: Cannot add hidden layer, add an input layer first\n");
+            exit(1);
+        }
+
+        if (outputLayerSize > 0) {
+            fprintf(stderr, "ERROR: Cannot add hidden layer, output layer already exists\n");
             exit(1);
         }
 
@@ -34,10 +56,10 @@ void NeuralNetwork::addHiddenLayer(size_t size) {
         }
     }
 
-    // Connect to input layer
+    // Connect to input layer by default
     size_t lastLayerSize = inputLayerSize;
 
-    // Connect to last hidden layer
+    // Connect to last hidden layer if available, else will connect to input layer
     if (numLayers > 1)
         lastLayerSize = weights.back().getRows();
     
@@ -49,6 +71,12 @@ void NeuralNetwork::addHiddenLayer(size_t size) {
     numLayers++;
 }
 
+
+/**
+ * @brief Add an output layer to the Neural Network. Will connect to the last hidden layer.
+ * 
+ * @param size Size of the output layer. Should match the amount of classes in the output data.
+ */
 void NeuralNetwork::addOutputLayer(size_t size) {
     if (SAFETY_CHECKS) {
         if (outputLayerSize > 0) {
@@ -79,9 +107,19 @@ void NeuralNetwork::addOutputLayer(size_t size) {
     numLayers++;
 }
 
-Matrix NeuralNetwork::expandBias(Matrix &bias, size_t cols) {
+
+/**
+ * @brief Copy bias vector to every column of a Matrix.
+ * This is used to apply the bias to every input in a batch.
+ * 
+ * @param bias Bias vector.
+ * @param cols Amount of columns to copy the bias to.
+ * @return A new Matrix with the bias vector copied to every column.
+ */
+Matrix NeuralNetwork::expandBias(const Matrix &bias, size_t cols) {
     Matrix res = Matrix(bias.getRows(), cols);
 
+    #pragma omp parallel for
     for (size_t row = 0; row < bias.getRows(); row++)
         for (size_t col = 0; col < cols; col++)
             res[row][col] = bias[row][0];
@@ -89,6 +127,13 @@ Matrix NeuralNetwork::expandBias(Matrix &bias, size_t cols) {
     return res;
 }
 
+
+/**
+ * @brief Rectified Linear Unit activation function.
+ * 
+ * @param mat Matrix to apply the ReLU function to (will be modified).
+ * @return Reference to the same matrix.
+ */
 Matrix& NeuralNetwork::ReLU(Matrix &mat) {
     #pragma omp parallel for
     for (size_t row = 0; row < mat.getRows(); row++)
@@ -98,6 +143,13 @@ Matrix& NeuralNetwork::ReLU(Matrix &mat) {
     return mat;
 }
 
+
+/**
+ * @brief Derivative of the Rectified Linear Unit activation function.
+ * 
+ * @param mat Matrix to apply the derivative of the ReLU function to (will be modified).
+ * @return Reference to the same matrix.
+ */
 Matrix& NeuralNetwork::derivativeReLU(Matrix &mat) {
     #pragma omp parallel for
     for (size_t row = 0; row < mat.getRows(); row++) {
@@ -112,6 +164,15 @@ Matrix& NeuralNetwork::derivativeReLU(Matrix &mat) {
     return mat;
 }
 
+
+/**
+ * @brief Softmax activation function.
+ * Applies the softmax function to every column of the matrix.
+ * Each column represents the output of a single input.
+ * 
+ * @param mat Matrix to apply the softmax function to (will be modified).
+ * @return Reference to the same matrix.
+ */
 Matrix& NeuralNetwork::softmax(Matrix &mat) {
     // Apply softmax column by column
     #pragma omp parallel for
@@ -143,6 +204,13 @@ Matrix& NeuralNetwork::softmax(Matrix &mat) {
     return mat;
 }
 
+
+/**
+ * @brief Feed Forward the input data through the Neural Network.
+ * 
+ * @param input Input data, should have the same amount of rows as the input layer size.
+ * @return struct ForwardData with the output and hidden layers values.
+ */
 ForwardData NeuralNetwork::forwardPropagation(const Matrix &input) {
     if (SAFETY_CHECKS) {
         if (numLayers < 3) {
@@ -188,6 +256,16 @@ ForwardData NeuralNetwork::forwardPropagation(const Matrix &input) {
     return result;
 }
 
+
+/**
+ * @brief Back Propagate the errors through the Neural Network, calculating delta weights and biases.
+ * This is the main function to train the Neural Network, as it estimates the gradient of the loss function.
+ * 
+ * @param input Input data, should have the same amount of rows as the input layer size.
+ * @param targetOutput Target output data, should have the same amount of rows as the output layer size.
+ * @param forwardData ForwardData struct with the output and hidden layers values, from a previous forwardPropagation call.
+ * @return struct BackData with delta weights and biases to update parameters.
+ */
 BackData NeuralNetwork::backPropagation(const Matrix &input, const Matrix& targetOutput, ForwardData &forwardData) {
     if (SAFETY_CHECKS) {
         if (numLayers < 3) {
@@ -226,7 +304,7 @@ BackData NeuralNetwork::backPropagation(const Matrix &input, const Matrix& targe
     result.deltaWeights.resize(numLayers - 1);
     result.deltaBiases.resize(numLayers - 1);
     
-    // Amount of entries being processed at once
+    // Amount of entries being processed at once (one entry per column)
     double m = input.getCols();
 
     // Output layer (we copy the output matrix since sub modifies it)
@@ -238,7 +316,7 @@ BackData NeuralNetwork::backPropagation(const Matrix &input, const Matrix& targe
         result.deltaWeights[layer] = dZ.dot(forwardData.hiddenValuesAfterActivation[layer - 1].transpose()).div(m);
         result.deltaBiases[layer] = dZ.sum() / m;
 
-        // Advance to previous layer
+        // Advance to previous layer (copy weight Matrix to avoid modifying it)
         dZ = Matrix(weights[layer]).transpose().dot(dZ).mult(derivativeReLU(forwardData.hiddenValues[layer - 1]));
     }
 
@@ -249,6 +327,15 @@ BackData NeuralNetwork::backPropagation(const Matrix &input, const Matrix& targe
     return result;
 }
 
+
+/**
+ * @brief Calculate the accuracy of the Neural Network output compared to the target output.
+ * The output is considered correct if the highest value in the output matrix corresponds to a 1.0 in the target output matrix.
+ * 
+ * @param output Output matrix, from a previous forwardPropagation call.
+ * @param targetOutput Target output data.
+ * @return Accuracy as a percentage [0.0, 1.0].
+ */
 double NeuralNetwork::calculateAccuracy(const Matrix& output, const Matrix& targetOutput) const {
     if (SAFETY_CHECKS)
         if (output.getRows() != targetOutput.getRows() || output.getCols() != targetOutput.getCols()) {
@@ -271,16 +358,23 @@ double NeuralNetwork::calculateAccuracy(const Matrix& output, const Matrix& targ
             if (output[row][col] > output[maxIdx][col])
                 maxIdx = row;
 
-        // If on this location, targetOutput is 1.0, then output is correct
+        // If at this location, targetOutput is 1.0, then output is correct
         if (targetOutput[maxIdx][col] > 0.9)
             targetWrong -= 1.0;
     }
 
     // Calculate accuracy 
-    // acc = (C - W) / C
     return (targetCorrect - targetWrong) / targetCorrect;
 }
 
+
+/**
+ * @brief Get the index of the highest value in the output matrix.
+ * This is used to predict the class of the input data.
+ * 
+ * @param output Output matrix, from a previous forwardPropagation call.
+ * @return Index of the highest value in the output matrix.
+ */
 size_t NeuralNetwork::getPrediction(const Matrix& output) const {
     size_t maxIdx = 0;
 
@@ -291,6 +385,13 @@ size_t NeuralNetwork::getPrediction(const Matrix& output) const {
     return maxIdx;
 }
 
+
+/**
+ * @brief Update the Neural Network parameters (weights and biases) using the calculated deltas.
+ * 
+ * @param backData BackData struct with delta weights and biases, from a previous backPropagation call.
+ * @param learningRate Learning rate to apply to the deltas.
+ */
 void NeuralNetwork::updateParameters(BackData &backData, double learningRate) {
     for (size_t layer = 0; layer < numLayers - 1; layer++) {
         weights[layer].sub(backData.deltaWeights[layer].mult(learningRate));
@@ -298,6 +399,22 @@ void NeuralNetwork::updateParameters(BackData &backData, double learningRate) {
     }
 }
 
+
+/**
+ * @brief Train the Neural Network using the input data and target output data.
+ * A gradient descent is applied to minimize the loss function.
+ * @n
+ * The amount of columns in the input matrix represents the amount of entries to process at once.
+ * Ideally, this should be the whole dataset, but it can be a batch of entries.
+ * @n
+ * If any column from the output matrix is full of zeros, the Neural Network will train erratically.
+ * Make sure every input has a class in the output matrix.
+ * 
+ * @param input Input data, should have the same amount of rows as the input layer size.
+ * @param targetOutput Target output data, should have the same amount of rows as the output layer size.
+ * @param iterations Amount of iterations to perform.
+ * @param learningRate Learning rate to apply to the deltas.
+ */
 void NeuralNetwork::gradientDescent(const Matrix &input, const Matrix& targetOutput, size_t iterations, double learningRate) {
     for (size_t iter = 0; iter < iterations; iter++) {
         ForwardData fwdData = forwardPropagation(input);
@@ -306,11 +423,11 @@ void NeuralNetwork::gradientDescent(const Matrix &input, const Matrix& targetOut
         // Update gradually
         updateParameters(backData, learningRate);
 
-        if (iter % ITER_FEEDBACK == 0 || iter == iterations - 1) {
+        if (iter % ITER_FEEDBACK_FREQUENCY == 0 || iter == iterations - 1) {
             // Accuracy
             double accuracy = calculateAccuracy(fwdData.output, targetOutput);
 
-            // Mean Squared Error (this will change output in place)
+            // Mean Squared Error (this will change the output Matrix in-place)
             fwdData.output.sub(targetOutput);
             double loss = fwdData.output.mult(fwdData.output).sum() / fwdData.output.getSize();
 
@@ -319,6 +436,13 @@ void NeuralNetwork::gradientDescent(const Matrix &input, const Matrix& targetOut
     }
 }
 
+
+/**
+ * @brief Save the Neural Network parameters (weights and biases) to a binary file.
+ * @attention The Neural Network configuration IS NOT saved, only the parameters.
+ * 
+ * @param filepath File path to save parameters.
+ */
 void NeuralNetwork::saveParameters(const char* filepath) {
     FILE* fp = fopen(filepath, "wb");
 
@@ -343,6 +467,16 @@ void NeuralNetwork::saveParameters(const char* filepath) {
     fclose(fp);    
 }
 
+
+/**
+ * @brief Load the Neural Network parameters (weights and biases) from a binary file.
+ * @attention The Neural Network configuration IS NOT loaded, only the parameters.
+ * Absolute NO CHECKS are made to ensure the parameters are compatible with the Neural Network.
+ * 
+ * You need to initialize the Neural Network with the same input size, hidden layers and output size of the file you are loading.
+ * 
+ * @param filepath File path to load parameters from.
+ */
 void NeuralNetwork::loadParameters(const char* filepath) {
     FILE* fp = fopen(filepath, "rb");
 
@@ -365,4 +499,24 @@ void NeuralNetwork::loadParameters(const char* filepath) {
     }
 
     fclose(fp);    
+}
+
+
+/**
+ * @brief Get a view of the weights from the Neural Network.
+ * 
+ * @return const reference to the weights.
+ */
+const std::vector<Matrix>& NeuralNetwork::getWeightsView() const {
+    return weights;
+}
+
+
+/**
+ * @brief Get a view of the biases from the Neural Network.
+ * 
+ * @return const reference to the biases.
+ */
+const std::vector<Matrix>& NeuralNetwork::getBiasesView() const {
+    return biases;
 }

@@ -1,12 +1,22 @@
 #include "demoView.hpp"
 
+/**
+ * @brief Draw the weights of the Neural Network.
+ * Every weight matrix is drawn as a grid of pixels, 
+ * where positive values are green and negative values are red.
+ * 
+ * @param nn Neural Network.
+ * @param x Starting x position.
+ * @param y Starting y position.
+ */
 void drawWeights(const NeuralNetwork &nn, int x, int y) {
-    for (const Matrix& weight : nn.weights) {
+    for (const Matrix& weight : nn.getWeightsView()) {
         std::string description = "Weight matrix: " + std::to_string(weight.getRows()) + "x" + std::to_string(weight.getCols());
 
         ray::DrawText(description.c_str(), x, y, 15, ray::WHITE);
         y += 20;
 
+        // Draw weight matrix, positive values in green, negative in red
         for (size_t row = 0; row < weight.getRows(); row++) {
             for (size_t col = 0; col < weight.getCols(); col++) {
                 double value = weight[row][col];
@@ -19,6 +29,18 @@ void drawWeights(const NeuralNetwork &nn, int x, int y) {
     }
 }
 
+
+/**
+ * @brief Draw the neurons of the Neural Network.
+ * Input neurons are not drawn, only hidden and output layers.
+ * @n
+ * Neurons are drawn as circles,
+ * where the brightness of the circle represents the value of the neuron.
+ * 
+ * @param result Output matrix from a previous forwardPropagation call.
+ * @param x Starting x position.
+ * @param y Starting y position.
+ */
 void drawNeurons(const ForwardData &result, int x, int y) {
     const int yOld = y;
     const int radius = 10;
@@ -29,12 +51,14 @@ void drawNeurons(const ForwardData &result, int x, int y) {
         ray::DrawText(description.c_str(), x, y, 15, ray::WHITE);
         y += 30;
 
+        // Draw every neuron vertically
         for (size_t row = 0; row < result.hiddenValuesAfterActivation[i].getRows(); row++) {
             double value = result.hiddenValuesAfterActivation[i][row][0];
 
             ray::DrawCircle(x, y + row, radius, ray::ColorAlpha(ray::BLUE, (float) fabs(value)));
             ray::DrawCircleLines(x, y + row, radius, ray::BLUE);
 
+            // Offset vertical position for next neuron
             y += radius * 3;
         }
 
@@ -50,18 +74,31 @@ void drawNeurons(const ForwardData &result, int x, int y) {
     for (size_t row = 0; row < result.output.getRows(); row++) {
         double value = result.output[row][0];
 
+        // Draw every neuron vertically
         ray::DrawCircle(x, y + row, radius, ray::ColorAlpha(ray::BLUE, (float) fabs(value)));
         ray::DrawCircleLines(x, y + row, radius, ray::BLUE);
 
-        // Actual value
+        // Also draw values, so we can see the probability of each digit
         std::string valueStr = std::to_string(value);
 
         ray::DrawText(valueStr.c_str(), x + radius * 2, y + row - 5, 15, ray::WHITE);
 
+        // Offset vertical position for next neuron
         y += radius * 3;
     }
 }
 
+
+/**
+ * @brief Draw a canvas where the user can draw digits.
+ * The digit is the Neural Network input.
+ * 
+ * @param nn Neural Network.
+ * @param input Input matrix for the Neural Network, will be modified as the user draws.
+ * @param output Output matrix from a previous forwardPropagation call, so we can see the prediction.
+ * @param screenWidth Screen width.
+ * @param screenHeight Screen height.
+ */
 void drawCanvas(const NeuralNetwork &nn, Matrix &input, const Matrix &output, int screenWidth, int screenHeight) {
     const int canvasWidth = 280;
     const int canvasHeight = 280;
@@ -118,17 +155,24 @@ void drawCanvas(const NeuralNetwork &nn, Matrix &input, const Matrix &output, in
     ray::DrawText(prediction.c_str(), canvasX, canvasY + canvasHeight + 20, 20, ray::GRAY);
 }
 
-void runDemo(NeuralNetwork &nn) {
-    // Demo parameters (90% accuracy on test data)
-    nn.loadParameters("nn-parameters-784-56-28-10.bin");
 
+/**
+ * @brief Run the Neural Network visualization demo.
+ * 
+ * @attention This demo is tailored to the MNIST dataset. 
+ * @n
+ * Even though it supports multiple configurations of hidden layers, the input and output layers should remain the same.
+ * DON'T use this demo for other datasets without modifying it first.
+ * 
+ * @param nn Neural Network built for the MNIST dataset.
+ */
+void runDemo(NeuralNetwork &nn) {
     // Raylib environment
     const int screenWidth = 1000;
     const int screenHeight = 700;
 
     ray::InitWindow(screenWidth, screenHeight, "Nano Neural Network");
     ray::SetTargetFPS(60);
-    ray::SetTraceLogLevel(-1);
 
     // Free camera
     ray::Camera2D camera = { 0 };
@@ -146,7 +190,7 @@ void runDemo(NeuralNetwork &nn) {
         ForwardData result = nn.forwardPropagation(input);
 
         // Update Camera
-        camera.zoom += ((float)ray::GetMouseWheelMove()*0.1f);
+        camera.zoom += ((float) ray::GetMouseWheelMove() * 0.1f);
         
         if (ray::IsMouseButtonDown(ray::MOUSE_BUTTON_MIDDLE)) {
             ray::Vector2 delta = ray::GetMouseDelta();
@@ -161,7 +205,7 @@ void runDemo(NeuralNetwork &nn) {
             camera.offset = (ray::Vector2){ screenWidth / 2.0f, screenHeight / 2.0f };
         }
 
-        // Update input
+        // Update input matrix
         if (ray::IsKeyPressed(ray::KEY_C)) {
             input.zero();
         }

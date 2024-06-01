@@ -4,7 +4,7 @@
 #include "NeuralNetwork.hpp"
 
 // Need a namespace for raylib because it also uses a struct called Matrix
-// This way we can avoid conflicts
+// This way we can avoid conflicts. I should have read raylib docs beforehand but oh well...
 namespace ray {
     extern "C" {
         #include "raylib/raylib.h"
