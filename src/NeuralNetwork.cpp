@@ -249,7 +249,7 @@ BackData NeuralNetwork::backPropagation(const Matrix &input, const Matrix& targe
     return result;
 }
 
-double NeuralNetwork::calculateAccuracy(const Matrix& output, const Matrix& targetOutput) {
+double NeuralNetwork::calculateAccuracy(const Matrix& output, const Matrix& targetOutput) const {
     if (SAFETY_CHECKS)
         if (output.getRows() != targetOutput.getRows() || output.getCols() != targetOutput.getCols()) {
             fprintf(stderr, "ERROR: Cannot calculate accuracy for output matrices of different dimensions: (%zu, %zu) vs. (%zu, %zu)\n",
@@ -279,6 +279,16 @@ double NeuralNetwork::calculateAccuracy(const Matrix& output, const Matrix& targ
     // Calculate accuracy 
     // acc = (C - W) / C
     return (targetCorrect - targetWrong) / targetCorrect;
+}
+
+size_t NeuralNetwork::getPrediction(const Matrix& output) const {
+    size_t maxIdx = 0;
+
+    for (size_t row = 1; row < output.getRows(); row++)
+        if (output[row][0] > output[maxIdx][0])
+            maxIdx = row;
+
+    return maxIdx;
 }
 
 void NeuralNetwork::updateParameters(BackData &backData, double learningRate) {

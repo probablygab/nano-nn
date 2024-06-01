@@ -20,7 +20,7 @@ typedef struct BackData {
 } BackData;
 
 class NeuralNetwork {
-    private:
+    public:
         size_t numLayers = 0;
         size_t inputLayerSize = 0;
         size_t outputLayerSize = 0;
@@ -47,7 +47,9 @@ class NeuralNetwork {
         ForwardData forwardPropagation(const Matrix &input);
         BackData backPropagation(const Matrix &input, const Matrix& targetOutput, ForwardData &forwardData);
 
-        double calculateAccuracy(const Matrix& output, const Matrix& targetOutput);
+        double calculateAccuracy(const Matrix& output, const Matrix& targetOutput) const;
+        size_t getPrediction(const Matrix& output) const;
+
         void updateParameters(BackData &backData, double learningRate);
         void gradientDescent(const Matrix &input, const Matrix& targetOutput, size_t iterations, double learningRate);
 
