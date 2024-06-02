@@ -332,6 +332,47 @@ Matrix Matrix::dot(const Matrix& rhs) const {
 
 
 /**
+ * @brief Perform a dot product with another Matrix, transposing the right Matrix (rhs).
+ * Does not modify this Matrix or rhs.
+ * 
+ * This is `much more` efficient than transposing the right Matrix and then performing the dot product.
+ * 
+ * @param rhs Matrix to dot product with.
+ * @return A new Matrix resulting from the dot product.
+ */
+Matrix Matrix::dotTransposeRight(const Matrix& rhs) const {
+    if (SAFETY_CHECKS)
+        if (cols != rhs.cols) {
+            fprintf(stderr, "ERROR: Cannot transpose right matrix and dot product it with the left matrix, dimension mismatch: (%zu, %zu *) vs. (%zu, %zu *)\n",
+            rows, cols, rhs.rows, rhs.cols);
+            exit(1);
+        }
+
+    // To perform the dot product as if the right matrix was transposed,
+    // We treat its rows as columns and multiply them with the rows of the left matrix.
+    // Since both matrices will be indexed in row-major order, this is very cache-friendly.
+
+    Matrix res = Matrix(rows, rhs.rows);
+
+    #pragma omp parallel for
+    for (size_t col = 0; col < rhs.rows; col++) {
+        // Multiply rows of this matrix with the column (actually row) of rhs
+        for (size_t row = 0; row < rows; row++) {
+            double sum = 0.0;
+
+            #pragma omp simd reduction(+:sum)
+            for (size_t k = 0; k < cols; k++)
+                sum += (*this)[row][k] * rhs[col][k];
+
+            res[row][col] = sum;
+        }
+    }
+  
+    return res;
+}
+
+
+/**
  * @brief Transpose the Matrix. This will modify the Matrix in-place.
  * @attention
  * To transpose a Matrix without modifying it, use the copy constructor as follows:

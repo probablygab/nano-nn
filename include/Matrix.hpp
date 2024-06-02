@@ -63,6 +63,7 @@ class Matrix {
         Matrix& div(const Matrix& rhs);
 
         Matrix dot(const Matrix& rhs) const;
+        Matrix dotTransposeRight(const Matrix& rhs) const;
         Matrix& transpose();
 
         Matrix& zero();

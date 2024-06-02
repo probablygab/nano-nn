@@ -313,7 +313,7 @@ BackData NeuralNetwork::backPropagation(const Matrix &input, const Matrix& targe
     // Hidden layers
     for (size_t layer = numLayers - 2; layer > 0; layer--) {
         // Calculate deltas
-        result.deltaWeights[layer] = dZ.dot(forwardData.hiddenValuesAfterActivation[layer - 1].transpose()).div(m);
+        result.deltaWeights[layer] = dZ.dotTransposeRight(forwardData.hiddenValuesAfterActivation[layer - 1]).div(m);
         result.deltaBiases[layer] = dZ.sum() / m;
 
         // Advance to previous layer (copy weight Matrix to avoid modifying it)
@@ -321,7 +321,7 @@ BackData NeuralNetwork::backPropagation(const Matrix &input, const Matrix& targe
     }
 
     // Input layer
-    result.deltaWeights[0] = dZ.dot(Matrix(input).transpose()).div(m);
+    result.deltaWeights[0] = dZ.dotTransposeRight(input).div(m);
     result.deltaBiases[0] = dZ.sum() / m;
 
     return result;
