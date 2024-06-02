@@ -59,7 +59,7 @@ The main feature of this project is an interactive demo, allowing a real time pe
 
 - You can see the values of every neuron and weights.
 - You can see how neurons react to your input.
-- You can see the current prediction the network assigns to your input.
+- You can see the current prediction for your input.
 
 A canvas on the lower left of the screen allows the user to draw a number.
 
@@ -75,7 +75,7 @@ You will need to draw big numbers with thick lines.
 
 The MNIST dataset is very popular, but it is quite uniform when it comes to number configurations. 
 That is, the network wasn't trained on numbers of different sizes or tilted numbers. 
-If you draw a number in weird ways, the network can often not recognize it.
+If you draw a number in weird ways, the network may not recognize it.
 
 ## Customizing the Neural Network
 
