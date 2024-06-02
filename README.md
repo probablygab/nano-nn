@@ -17,8 +17,27 @@ This project was roughly based on [this video](https://www.youtube.com/watch?v=w
 
 This Neural Network was trained on part of the MNIST handwritten digits database:
 
-- The accuracy on training data was 90.29% for 31000 entries.
-- The accuracy on test data was 89.11% for 11000 entries.
+```sh
+Reading train.csv ... Done!
+Reading test.csv ... Done!
+Iteration: 0  Loss (MSE): 0.140818  Accuracy: 7.44%
+Iteration: 10  Loss (MSE): 0.077290  Accuracy: 36.97%
+Iteration: 20  Loss (MSE): 0.062988  Accuracy: 51.55%
+Iteration: 30  Loss (MSE): 0.052713  Accuracy: 60.80%
+Iteration: 40  Loss (MSE): 0.046117  Accuracy: 66.21%
+Iteration: 50  Loss (MSE): 0.041670  Accuracy: 69.64%
+Iteration: 60  Loss (MSE): 0.038439  Accuracy: 72.27%
+...
+Iteration: 560  Loss (MSE): 0.014004  Accuracy: 90.68%
+Iteration: 570  Loss (MSE): 0.013891  Accuracy: 90.74%
+Iteration: 580  Loss (MSE): 0.013780  Accuracy: 90.81%
+Iteration: 590  Loss (MSE): 0.013673  Accuracy: 90.88%
+Iteration: 599  Loss (MSE): 0.013578  Accuracy: 90.95%
+Accuracy on test data: 89.85%
+```
+
+- The accuracy on training data was 90.95% for 31000 entries.
+- The accuracy on test data was 89.85% for 11000 entries.
 
 ## How to run the demo (or train)
 
