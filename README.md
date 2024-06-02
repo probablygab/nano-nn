@@ -32,8 +32,14 @@ You can clone and compile the project locally if you're having problems with inc
 ## How to compile
 
 Compiled libraries for *raylib* are provided for Windows and Linux systems, you don't need to worry about compiling *raylib*.
-
 The Makefile will select the appropriate library automatically.
+
+To compile and run:
+
+```sh
+make
+make run
+```
 
 ### Linux requirements 
 
