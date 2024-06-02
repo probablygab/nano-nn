@@ -9,6 +9,7 @@ Everything is implemented from scratch, including the linear algebra needed for 
 A real time visualization and interactive demo is possible on trained networks.
 
 This code is not meant to be blazingly fast, though some optimizations were made here and there.
+As far as I've tested, this implementation is 1.5x to 2.5x slower than a pure numpy implementation (no TensorFlow).
 
 This project was roughly based on [this video](https://www.youtube.com/watch?v=w8yWXqWQYmU), I would also recommend [3B1B playlist](https://youtube.com/playlist?list=PLZHQObOWTQDNU6R1_67000Dx_ZCJB-3pi&si=euRyhi6ECpi-81Ri) on NNs.
 
